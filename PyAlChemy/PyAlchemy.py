@@ -4,7 +4,7 @@ import glob
 import json
 import pandas as pd
 
-LAMBDA_PATH = "/home/colemathis/AlChemy/LambdaReactor"
+LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
 
 class Simulation:
 
@@ -163,7 +163,7 @@ def read_results(sim):
     for out_file in all_outputs:
         # Time-stamp (this isn't the time, its an integer multiple of output_freq)
         time_stamp = int(out_file.split(sim.name)[-1])
-        time_data = parse_single_file(out_file)
+        time_data, _ = parse_single_file(out_file)
         timeseries[int(time_stamp)] = time_data
     return timeseries
 
@@ -182,7 +182,35 @@ def parse_single_file(fname):
             count = int(count_str)
             count_dict[lambda_str] = count
             lambda_id_dict[lambda_str] = id
-    return count_dict
+    return count_dict, lambda_id_dict
+
+def merge_two_expression_files(f1, f2):
+    count_dict_1, id_dict_1 = parse_single_file(f1)
+    count_dict_2, id_dict_2 = parse_single_file(f2)
+
+    combined_counts = dict()
+    combined_ids = dict()
+
+    lambdas = list(id_dict_1.keys())
+    lambdas_2 = list(id_dict_2.keys())
+    lambdas.extend(lambdas_2)
+    lambdas = list(set(lambdas))
+    n = len(lambdas)
+    for i in range(n):
+        l = lambdas[i]
+        combined_counts[l] = count_dict_1.get(l,0) + count_dict_2.get(l,0)
+        combined_ids[l] = i
+    return combined_counts, combined_ids
+
+def write_expressions_to_file(counts, ids, fname):
+    
+    with open(fname, "w") as open_file:
+        for l_expr, c in counts.items():
+            id = ids[l_expr]
+            line_to_write = l_expr + " {" + str(id) + " " + str(c) + " 0}\n" 
+            open_file.write(line_to_write)
+
+
 
 def run_sim(this_sim):
 
@@ -220,3 +248,7 @@ if __name__ == "__main__":
     # this_sim = Simulation(name, directory, reducer, randomizer,
     #            1337, max_obs, n_collisions, output_freq)
     # run_sim()
+    counts, ids = merge_two_expression_files("../LambdaReactor/hunt_for_L0/100_random_exprs_depth_60",
+                                             "../LambdaReactor/random_expression_runner/randomizer0_depth6100")
+    print(counts)
+    write_expressions_to_file(counts, ids, "test_merge.lexprs")
