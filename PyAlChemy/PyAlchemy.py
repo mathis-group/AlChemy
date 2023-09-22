@@ -9,7 +9,7 @@ LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
 class Simulation:
 
     def __init__(self, name, directory, lambda_reducer, lambda_randomizer, random_seed,
-                 max_objects, n_collisions, output_freq, input_file = None):
+                 max_objects, n_collisions, output_freq, input_file = None, copy_allowed=True):
         # Where to store this stuff?
         self.directory = directory
         # What about a name?
@@ -24,6 +24,8 @@ class Simulation:
         self.output_freq = output_freq
         # What is the initial set of inputs? If None it will be randomized
         self.input_file = input_file
+        # Are copy actions allowed?
+        self.copy_allowed = copy_allowed
 
         self.lambda_reducer = lambda_reducer
         self.lambda_randomizer = lambda_randomizer
@@ -46,6 +48,11 @@ class Simulation:
             input_file = f"NULL-{self.max_objects}"
         else:
             input_file = self.input_file
+        
+        if self.copy_allowed:
+            copy_float = 1.0
+        else:
+            copy_float = 0.0
         output_str = (f"\n>>>>>>>>>>>>>>>>>>>>> SYSTEM 1\n\n"
 
                     f"\tfile with initial objects = {input_file}\n\n"
@@ -64,7 +71,7 @@ class Simulation:
                     "\t+- functional filters ---------------------+\n"
                     "\t+------------------------------------------+\n"
 
-                    "\tacceptance frequency for copy actions = 1.0\n"
+                    f"\tacceptance frequency for copy actions = {copy_float}\n"
 
                     "\t+- laws -----------------------------------+\n"
                     "\t+------------------------------------------+\n"
@@ -88,7 +95,7 @@ class Simulation:
         output_str += self.lambda_randomizer.write()
         output_str += self.write_sys_params()
 
-        with open(os.path.join(LAMBDA_PATH, self.directory, self.name+ ".inp"), "w") as f:
+        with open(os.path.join(self.directory, self.name+ ".inp"), "w") as f:
             f.write(output_str)
     
     def get_sim_params(self, non_basic_vars = ["lambda_reducer", "lambda_randomizer"]):
@@ -214,16 +221,17 @@ def write_expressions_to_file(counts, ids, fname):
 
 def run_sim(this_sim):
 
-    
     this_sim.write_sim()
     savename = os.path.join("run_data", str(hash(this_sim)) + '.json')
     sim_params = this_sim.get_sim_params()
     sim_params["savename"] = savename
-
+    # Make the directory if it doesn't exist
+    if not os.path.exists(this_sim.directory):
+        os.mkdir(this_sim.directory)
     # Run the simulation
     # Get the relative path to input
-    run_cmd = ["./ALCHEMY", "-f", os.path.join(this_sim.directory, this_sim.name+ ".inp") ]
-    subprocess.run(run_cmd, cwd = LAMBDA_PATH)
+    run_cmd = [os.path.join(LAMBDA_PATH, "ALCHEMY"), "-f", os.path.join(this_sim.directory, this_sim.name+ ".inp") ]
+    subprocess.run(run_cmd)
 
     # TODO add flag about success to return params 
 
@@ -242,13 +250,15 @@ if __name__ == "__main__":
     # name = "test_py"
     # directory = "test"
     # max_obs = 1000
-    # n_collisions = 500000
-    # output_freq = 5000
+    # n_collisions = 5000
+    # output_freq = int(n_collisions/100.0)
 
     # this_sim = Simulation(name, directory, reducer, randomizer,
     #            1337, max_obs, n_collisions, output_freq)
-    # run_sim()
-    counts, ids = merge_two_expression_files("../LambdaReactor/hunt_for_L0/100_random_exprs_depth_60",
-                                             "../LambdaReactor/random_expression_runner/randomizer0_depth6100")
-    print(counts)
-    write_expressions_to_file(counts, ids, "test_merge.lexprs")
+    # run_sim(this_sim)
+
+
+    # counts, ids = merge_two_expression_files("../LambdaReactor/hunt_for_L0/100_random_exprs_depth_60",
+    #                                          "../LambdaReactor/random_expression_runner/randomizer0_depth6100")
+    # print(counts)
+    # write_expressions_to_file(counts, ids, "test_merge.lexprs")

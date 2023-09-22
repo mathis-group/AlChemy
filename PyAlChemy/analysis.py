@@ -31,6 +31,19 @@ def get_unique_expressions(timeseries):
         n_timeseries[this_time] = len(lambdas)
     return n_timeseries
 
+def get_new_expressions(timeseries):
+    new_expr_timeseries = dict()
+    time_stamps = sorted([int(t) for t in timeseries.keys()])
+    all_expressions = set()
+    for t in time_stamps:
+        lambda_exprs = timeseries[str(t)]
+        lambdas = set(list(lambda_exprs.keys()))
+        n_new = len(lambdas - all_expressions)
+        new_expr_timeseries[t]= n_new
+        all_expressions.update(lambdas)
+    return new_expr_timeseries
+
+
 def get_expression_lengths(timeseries):
     len_timeseries = dict()
     for time_stamp, lambdas in timeseries.items():
@@ -68,10 +81,11 @@ def get_pop_entropy(timeseries):
     return pop_e_timeseries
 
 
-def make_ts_df(ts_data, vars = ["count", "entropy", "lengths", "n_vars"]):
+def make_ts_df(ts_data, vars = ["count", "entropy", "lengths", "n_vars", "n_novel"]):
 
     count_ts = get_unique_expressions(ts_data)
     entropy_ts = get_pop_entropy(ts_data)
+    novel_ts = get_new_expressions(ts_data)
 
     if "lengths" in vars:
         lengths_ts = get_expression_lengths(ts_data)
@@ -83,9 +97,10 @@ def make_ts_df(ts_data, vars = ["count", "entropy", "lengths", "n_vars"]):
         ave_vars = {k:mean(v) for k,v in var_ts.items()}
         std_vars = {k:std(v) for k,v in var_ts.items()}
         med_vars = {k:median(v) for k,v in var_ts.items()}
+    
 
-    ts_df = pd.DataFrame([count_ts, entropy_ts]).T
-    ts_df.columns = ["count", "pop_entropy"]
+    ts_df = pd.DataFrame([count_ts, entropy_ts, novel_ts]).T
+    ts_df.columns = ["count", "pop_entropy", "new_exprs"]
     ts_df["time_step"] = ts_df.index
 
     ts_df["ave_num_vars"] = ts_df["time_step"].map(ave_vars)
@@ -98,7 +113,7 @@ def make_ts_df(ts_data, vars = ["count", "entropy", "lengths", "n_vars"]):
     
     ts_df.sort_index(inplace=True)
     return ts_df
-    
+
 
 def analyze_runs(input_files):
 
@@ -114,8 +129,33 @@ def analyze_runs(input_files):
     combined_df = pd.concat(all_dfs)
     merged_df = combined_df.join(input_runs.set_index("savename"), on = "savename")
     merged_df.to_csv("RerunDF.csv")
-    
+
+
+def analyze_perturbed_files(fname):
+
+    perturbed_data = pd.read_csv(fname)
+
+    all_ts_dfs = []
+    for i, row in perturbed_data.iterrows():
+        perturbed_ts_file = row["savename"]
+        seed_ts_file = row["parent"]
+
+        with open(perturbed_ts_file, "r") as f:
+            perturbed_ts = json.load(f)
+        perturbed_ts_df = make_ts_df(perturbed_ts)
+
+        with open(seed_ts_file, "r") as f:
+            seed_ts = json.load(f)
+        seed_ts_df = make_ts_df(seed_ts)
+        
+        max_time = max(seed_ts_df["time_step"])
+        perturbed_ts_df["time_step"] = perturbed_ts_df["time_step"] + max_time
+        combined_ts_df = pd.concat([seed_ts_df, perturbed_ts_df])
+        combined_ts_df["name"] = row["name"]
+        all_ts_dfs.append(combined_ts_df)
+    all_perturbed_df = pd.concat(all_ts_dfs)
+    all_perturbed_df.to_csv("BigPerturbed_DF.csv")
+    return all_perturbed_df
 if __name__ == "__main__":
+    all_ts_df = analyze_perturbed_files("L0_perturbed.csv")
     
-    input_file = "Extension_files.csv"
-    analyze_runs(input_file)

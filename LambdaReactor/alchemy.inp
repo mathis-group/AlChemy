@@ -69,7 +69,6 @@ NOTE: repeat the next input block for as many times as there are systems
 		     +------------------------------------------+
 
 	      file with initial objects = NULL-1000
-
 		     +- regular expression filters -------------+
 		     |						|
 		     |	SYNTAX: - (must not match) or + (must	|
