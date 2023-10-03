@@ -1,2 +1,9 @@
 *.o
 *.csv
+*.json
+.vscode
+*/__pycache__
+PyAlChemy/run_data/*
+*/ALCHEMY
+*.pairs
+*.log
