@@ -4,6 +4,7 @@ import pickle
 import json
 from numpy import log10, mean, std, median, quantile
 import re
+import glob
 
 
 def get_variables(lambda_str):
@@ -154,8 +155,62 @@ def analyze_perturbed_files(fname):
         combined_ts_df["name"] = row["name"]
         all_ts_dfs.append(combined_ts_df)
     all_perturbed_df = pd.concat(all_ts_dfs)
-    all_perturbed_df.to_csv("BigPerturbed_DF.csv")
+    # all_perturbed_df.to_csv("BigPerturbed_DF.csv")
     return all_perturbed_df
+
+def analyze_repeated_perturbation(seed_fname, p_motif = "p_"):
+    # Read the seed data
+    # seed_data = pd.read_csv(seed_fname)
+    # Find all perturbation data
+    all_perturbation_fnames = glob.glob(f"{p_motif}*_{seed_fname}")
+
+    # Make a map from source to parent
+    all_perturbation_fnames = sorted(all_perturbation_fnames, reverse=True)
+    daughter_parent = dict()
+    for p_fname in all_perturbation_fnames:
+        p_data = pd.read_csv(p_fname)
+        this_d_p_map = dict(zip(p_data["savename"],p_data["parent"]))
+        daughter_parent = {**daughter_parent, **this_d_p_map}
+
+    all_ts_dfs = dict()
+    all_combined_dfs = []
+
+    all_perturbation_fnames.append(seed_fname)
+    for run_fname in all_perturbation_fnames:
+        runs_df = pd.read_csv(run_fname)
+        for i, row in runs_df.iterrows():
+            ts_file = row["savename"]
+            with open(ts_file, "r") as f:
+                ts_data = json.load(f)
+            ts_df = make_ts_df(ts_data)
+            all_ts_dfs[ts_file] = ts_df
+    last_run = all_perturbation_fnames[0]
+    last_run_df = pd.read_csv(last_run, index_col=0)
+    for i, row in last_run_df.iterrows():
+        print(row["bind_all_free_vars"])
+        ts_fname = row["savename"]
+        print(ts_fname)
+        daughter_df = all_ts_dfs[ts_fname]
+        parent_fname = daughter_parent[ts_fname]
+        while parent_fname is not None:
+            parent_df = all_ts_dfs[parent_fname]
+            max_time = max(parent_df["time_step"])
+            daughter_df["time_step"] = daughter_df["time_step"] + max_time
+            combined_ts_df = pd.concat([parent_df, daughter_df])
+            ts_fname = parent_fname
+            last_parent = parent_fname
+            parent_fname = daughter_parent.get(ts_fname, None)
+            daughter_df = combined_ts_df
+        combined_ts_df["savename"] = last_parent#row["savename"]
+        all_combined_dfs.append(combined_ts_df)
+    all_perturbed_df = pd.concat(all_combined_dfs, ignore_index=True)
+    # all_perturbed_df.to_csv("BigPerturbed_DF.csv")
+    return all_perturbed_df
+
+
 if __name__ == "__main__":
-    all_ts_df = analyze_perturbed_files("L0_perturbed.csv")
-    
+    all_ts_df = analyze_repeated_perturbation("L0_seeds.csv")
+    all_ts_df.to_csv("L0_hunt_analyzed.csv")
+
+    all_ts_df = analyze_repeated_perturbation("L1_seeds.csv")
+    all_ts_df.to_csv("L1_hunt_analyzed.csv")

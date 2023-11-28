@@ -3,6 +3,9 @@ import os
 import glob
 import json
 import pandas as pd
+import random
+import networkx as nx
+import pickle
 
 LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
 
@@ -49,10 +52,10 @@ class Simulation:
         else:
             input_file = self.input_file
         
-        if self.copy_allowed:
-            copy_float = 1.0
-        else:
+        if self.copy_allowed != True:
             copy_float = 0.0
+        elif self.copy_allowed == True:
+            copy_float = 1.0
         output_str = (f"\n>>>>>>>>>>>>>>>>>>>>> SYSTEM 1\n\n"
 
                     f"\tfile with initial objects = {input_file}\n\n"
@@ -84,8 +87,8 @@ class Simulation:
     def write_sim(self):
 
         # Check if directory exists, if not make it
-        if not os.path.exists(os.path.join(LAMBDA_PATH,self.directory)):
-            os.mkdir(os.path.join(LAMBDA_PATH,self.directory))
+        # if not os.path.exists(os.path.join(LAMBDA_PATH,self.directory)):
+        #     os.mkdir(os.path.join(LAMBDA_PATH,self.directory))
         # write each piece.
         output_str = "\n>>>>>>>>>>>>>>>>>>>>> simulation parameters\n"
         output_str += self.write_sim_params()
@@ -140,7 +143,7 @@ class LambdaReducer:
 
 class LambdaRandomizer:
 
-    def __init__(self, max_depth = 10, n_vars = 6, bind_all_free_vars = False,
+    def __init__(self, max_depth = 10, n_vars = 6, bind_all_free_vars = True,
                  p_range_app = (0.3, 0.5), p_range_abs= (0.5, 0.3)):
 
         self.max_depth = max_depth # maximum expression depth =  10
@@ -159,10 +162,62 @@ class LambdaRandomizer:
 
         return output_str
 
+
+def run_sim(this_sim):
+
+    # Make the directory if it doesn't exist
+    if not os.path.exists(this_sim.directory):
+        os.mkdir(this_sim.directory)
+    # Write simulation 
+    this_sim.write_sim()
+    sim_params = this_sim.get_sim_params()
+    savename = os.path.join("run_data", str(hash(str(sim_params))) + '.json')
+    sim_params["savename"] = savename
+    # Run the simulation
+    # Get the relative path to input
+    run_cmd = [os.path.join(LAMBDA_PATH, "ALCHEMY"), "-f", os.path.join(this_sim.directory, this_sim.name+ ".inp") ]
+    subprocess.run(run_cmd)
+
+    # TODO add flag about success to return params 
+
+    # Read/re-write the outputs
+    timeseries = read_results(this_sim)
+    with open(savename, "w") as f:
+        json.dump(timeseries, f)
+
+    return sim_params
+
+
+def check_reaction_graph(this_sim):
+
+    # this_sim.write_sim()
+    # Make the directory if it doesn't exist
+    if not os.path.exists(this_sim.directory):
+        os.mkdir(this_sim.directory)
+    # Get the relative path to input
+    run_cmd = [os.path.join(LAMBDA_PATH, "ALCHEMY"),"-p", "-f", os.path.join(this_sim.directory, this_sim.name+ ".inp") ]
+    subprocess.run(run_cmd)
+    ouput_file = this_sim.input_file + ".pairs"
+
+    # Read/re-write the outputs
+    reactions = parse_pairwise_file(ouput_file)
+    rxn_graph = generate_reaction_graph(reactions)
+
+    # Check the count data and expressions
+    count_dict, lambda_id_dict = parse_single_file(this_sim.input_file)
+    id_counts = {lambda_id_dict[k]:v for k,v in count_dict.items()}
+
+    save_data = {'reaction_list': reactions, "counts": id_counts}
+    save_fname = this_sim.input_file + "_rxn_graph.json"
+    with open(save_fname, "w") as f:
+        json.dump(save_data, f)
+
+    return save_data, rxn_graph
+
 def read_results(sim):
 
     # Get the directory
-    dir = os.path.join(LAMBDA_PATH, sim.directory, sim.name)
+    dir = os.path.join(sim.directory, sim.name)
     all_files = glob.glob(dir + "*")
     # Drop the log file
     all_outputs = [a for a in all_files if "." not in a]
@@ -191,7 +246,34 @@ def parse_single_file(fname):
             lambda_id_dict[lambda_str] = id
     return count_dict, lambda_id_dict
 
-def merge_two_expression_files(f1, f2):
+def parse_pairwise_file(pair_fname):
+    with open(pair_fname, "r") as f:
+        all_lines = f.readlines()
+
+    all_reactions = []
+    for l in all_lines:
+        (lhs,rhs) = l.split("=>")
+        if rhs.strip() == "R":
+            pass
+        elif "*" in rhs:
+            raise Warning("Reaction graph is not closed, try running again with longer collision time")
+        else:
+            product_split = rhs.split("[")
+            product = product_split[0]
+            product = product.strip()
+
+            lhs_split = lhs.split(":")
+            
+            reactant_1 = lhs_split[0].split("[")[0]
+            reactant_1 = reactant_1.strip()
+            
+            reactant_2 = lhs_split[1].split("[")[0]
+            reactant_2 = reactant_2.strip()
+            all_reactions.append([reactant_1, reactant_2, product])
+
+    return all_reactions
+
+def merge_two_expression_files(f1, f2, max_count = None):
     count_dict_1, id_dict_1 = parse_single_file(f1)
     count_dict_2, id_dict_2 = parse_single_file(f2)
 
@@ -207,6 +289,26 @@ def merge_two_expression_files(f1, f2):
         l = lambdas[i]
         combined_counts[l] = count_dict_1.get(l,0) + count_dict_2.get(l,0)
         combined_ids[l] = i
+    if max_count:
+        current_counts = list(combined_counts.values())
+        current_total = sum(current_counts)
+        if current_total > max_count:
+            n_remove = current_total - max_count
+            redo_count = n_remove
+            while redo_count > 0:
+                current_exprs = list(combined_counts.keys())
+                weights = [float(c)/current_total for c in current_counts]
+                random_exprs = random.choices(current_exprs, weights=weights)
+                redo_count = 0
+                for r in random_exprs:
+                    if combined_counts[r] > 1:
+                        combined_counts[r] -= 1
+                    elif combined_counts[r] == 1:
+                        combined_counts[r] = 0
+                    elif combined_counts[r] == 0:
+                        redo_count += 1
+                combined_counts = {k:v for k,v in combined_counts.items() if v > 0}
+                combined_ids = {k:v for k,v in combined_ids.items() if combined_counts[v] > 0}
     return combined_counts, combined_ids
 
 def write_expressions_to_file(counts, ids, fname):
@@ -217,48 +319,49 @@ def write_expressions_to_file(counts, ids, fname):
             line_to_write = l_expr + " {" + str(id) + " " + str(c) + " 0}\n" 
             open_file.write(line_to_write)
 
+def generate_reaction_graph(rxns):
+
+    all_expression_nodes = []
+    all_rxn_nodes = []
+    all_edges = []
+    rxn_num = 0
+    for r in rxns:
+        all_expression_nodes.extend(r)
+        all_rxn_nodes.append(f"rxn_{rxn_num}")
+
+        these_edges = [(r[0],f"rxn_{rxn_num}" ), 
+                       (r[1],f"rxn_{rxn_num}" ),
+                       (f"rxn_{rxn_num}",r[2])]
+        all_edges.extend(these_edges)
+        rxn_num += 1
 
 
-def run_sim(this_sim):
+    all_expression_nodes = list(set(all_expression_nodes))
+    #all_expression_nodes = [int(i) for i in all_expression_nodes]
 
-    this_sim.write_sim()
-    savename = os.path.join("run_data", str(hash(this_sim)) + '.json')
-    sim_params = this_sim.get_sim_params()
-    sim_params["savename"] = savename
-    # Make the directory if it doesn't exist
-    if not os.path.exists(this_sim.directory):
-        os.mkdir(this_sim.directory)
-    # Run the simulation
-    # Get the relative path to input
-    run_cmd = [os.path.join(LAMBDA_PATH, "ALCHEMY"), "-f", os.path.join(this_sim.directory, this_sim.name+ ".inp") ]
-    subprocess.run(run_cmd)
+    rxn_graph = nx.DiGraph()
+    rxn_graph.add_nodes_from(all_expression_nodes, bipartite=0)
+    rxn_graph.add_nodes_from(all_rxn_nodes, bipartite=1)
+    rxn_graph.add_edges_from(all_edges)
 
-    # TODO add flag about success to return params 
+    return rxn_graph
 
-    # Read/re-write the outputs
-    timeseries = read_results(this_sim)
-    with open(savename, "w") as f:
-        json.dump(timeseries, f)
-
-    return sim_params
 
 if __name__ == "__main__":
     print("Ran from main")
-    # randomizer = LambdaRandomizer()
-    # reducer = LambdaReducer()
+    randomizer = LambdaRandomizer()
+    reducer = LambdaReducer()
 
-    # name = "test_py"
-    # directory = "test"
-    # max_obs = 1000
-    # n_collisions = 5000
-    # output_freq = int(n_collisions/100.0)
+    name = "test_py"
+    directory = "test"
+    max_obs = 1000
+    n_collisions = 100000
+    output_freq = int(n_collisions/100.0)
 
-    # this_sim = Simulation(name, directory, reducer, randomizer,
-    #            1337, max_obs, n_collisions, output_freq)
-    # run_sim(this_sim)
-
-
-    # counts, ids = merge_two_expression_files("../LambdaReactor/hunt_for_L0/100_random_exprs_depth_60",
-    #                                          "../LambdaReactor/random_expression_runner/randomizer0_depth6100")
-    # print(counts)
-    # write_expressions_to_file(counts, ids, "test_merge.lexprs")
+    this_sim = Simulation(name, directory, reducer, randomizer,
+               1001011337, max_obs, n_collisions, output_freq)
+    run_data = run_sim(this_sim)
+    last_file_input_file = f"{run_data['directory']}/{run_data['name']}100"
+    check_sim = Simulation(name, directory, reducer, randomizer,
+               1001011337, max_obs, n_collisions, output_freq, input_file= last_file_input_file)
+    save_data, rxn_graph = check_reaction_graph(check_sim)
