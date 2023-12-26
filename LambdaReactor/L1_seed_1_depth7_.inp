@@ -1,0 +1,53 @@
+
+>>>>>>>>>>>>>>>>>>>>> simulation parameters
+
+	name of simulation =  L1Debug
+	reaction scheme =  ORIGINAL
+	typing basis =  NULL
+	store types =  1
+	number of systems =  1
+	maximum overall number of objects =  1000
+	number of collisions to perform =  10000000
+	snapshot interval =  10000
+	random seed =  20380
+>>>>>>>>>>>>>>>>>>>>> lambda reduction machine parameters
+
+	size of heap =  800
+	maximum number of reduction steps =  500
+	size of symbol table =  500
+	size of stack =  2000
+	max length of identifiers =  10
+	max length of basis types =  100
+	standard variable prefix =  x
+	error file =  NULL
+>>>>>>>>>>>>>>>>>>>>> random expression generator parameters
+
+	maximum expression depth =  7
+	number of variables to choose =  6
+	bind all free variables =  1
+	probability range for application =  0.3  0.5
+	probability range for abstraction =  0.5  0.3
+>>>>>>>>>>>>>>>>>>>>> SYSTEM 1
+
+	file with initial objects = L1_seed_0_depth7_93
+
+	INITIAL filter expressions =  1
+	INITIAL filter regular expression =  + ^\\x[0-9]+
+
+	OPERATOR filter expressions =  1
+	OPERATOR filter regular expression = + ^\\x[0-9]+
+
+	ARGUMENT filter expressions =  0
+	ARGUMENT filter regular expression    - (a*)|(bc)
+
+	RESULT filter expressions =  1
+	RESULT filter regular expression =  + ^\\x[0-9]+
+
+	+- functional filters ---------------------+
+	+------------------------------------------+
+	acceptance frequency for copy actions = 0.0
+	+- laws -----------------------------------+
+	+------------------------------------------+
+	number of interaction laws =  1
+	law (lambda expression) =  \f.\g.(f)g
+	probability of law =  1.0
