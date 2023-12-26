@@ -7,3 +7,7 @@ PyAlChemy/run_data/*
 */ALCHEMY
 *.pairs
 *.log
+notebooks/*
+*
+!/**/
+!*.*
