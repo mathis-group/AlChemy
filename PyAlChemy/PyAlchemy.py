@@ -10,6 +10,30 @@ import pickle
 LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
 
 class Simulation:
+    """
+    A class representing a simulation.
+
+    Attributes:
+        name (str): The name of the simulation.
+        directory (str): The directory where the simulation is stored.
+        lambda_reducer (LambdaReducer): The lambda reducer object used in the simulation.
+        lambda_randomizer (LambdaRandomizer): The lambda randomizer object used in the simulation.
+        random_seed (int): The random seed for the simulation and random lambda generator.
+        max_objects (int): The maximum number of objects in the simulation.
+        n_collisions (int): The number of collisions to perform.
+        output_freq (int): The frequency of output snapshots.
+        input_file (str, optional): The initial set of inputs. If None, it will be randomized.
+        copy_allowed (bool): Flag indicating whether copy actions are allowed.
+
+    Methods:
+        write_sim_params(): Writes the simulation parameters as a formatted string.
+        write_sys_params(): Writes the system parameters as a formatted string.
+        write_sim(): Writes the simulation parameters, lambda reducer parameters, lambda randomizer parameters,
+                    and system parameters to a file.
+        get_sim_params(non_basic_vars): Returns a dictionary of simulation parameters, including the parameters
+                                        of lambda reducer and lambda randomizer objects.
+
+    """
 
     def __init__(self, name, directory, lambda_reducer, lambda_randomizer, random_seed,
                  max_objects, n_collisions, output_freq, input_file = None, copy_allowed=True):
@@ -34,6 +58,12 @@ class Simulation:
         self.lambda_randomizer = lambda_randomizer
 
     def write_sim_params(self):
+        """
+        Writes the simulation parameters as a formatted string.
+
+        Returns:
+            str: The formatted string of simulation parameters.
+        """
         output_str = (f"\n\tname of simulation =  {self.directory}/{self.name}"
                         f"\n\treaction scheme =  ORIGINAL"
                         f"\n\ttyping basis =  NULL"
@@ -46,7 +76,12 @@ class Simulation:
         return output_str
 
     def write_sys_params(self):
+        """
+        Writes the system parameters as a formatted string.
 
+        Returns:
+            str: The formatted string of system parameters.
+        """
         if not self.input_file:
             input_file = f"NULL-{self.max_objects}"
         else:
@@ -85,7 +120,10 @@ class Simulation:
         return output_str
 
     def write_sim(self):
-
+        """
+        Writes the simulation parameters, lambda reducer parameters, lambda randomizer parameters,
+        and system parameters to a file.
+        """
         # Check if directory exists, if not make it
         # if not os.path.exists(os.path.join(LAMBDA_PATH,self.directory)):
         #     os.mkdir(os.path.join(LAMBDA_PATH,self.directory))
@@ -101,14 +139,23 @@ class Simulation:
         with open(os.path.join(self.directory, self.name+ ".inp"), "w") as f:
             f.write(output_str)
     
-    def get_sim_params(self, non_basic_vars = ["lambda_reducer", "lambda_randomizer"]):
+    def get_sim_params(self, non_basic_vars=["lambda_reducer", "lambda_randomizer"]):
+        """
+        Returns a dictionary of simulation parameters, including the parameters of lambda reducer
+        and lambda randomizer objects.
 
+        Args:
+            non_basic_vars (list, optional): A list of non-basic variables to exclude from the dictionary.
+                                             Default is ["lambda_reducer", "lambda_randomizer"].
+
+        Returns:
+            dict: A dictionary of simulation parameters.
+        """
         sim_class_params = vars(self)
         for var in non_basic_vars:
             value = sim_class_params.pop(var)
             sim_class_params = {**sim_class_params, **vars(value)}
         return sim_class_params
-
 
 class LambdaReducer:
 
@@ -164,7 +211,23 @@ class LambdaRandomizer:
 
 
 def run_sim(this_sim):
+    """
+    Runs a simulation using the provided `this_sim` object. This is done by calling the AlChemy executable
+    with subprocess and the appropriate input file. The output is then read and saved to a file.
 
+    Parameters:
+    - this_sim: The simulation object containing the necessary information.
+
+    Returns:
+    - sim_params: The simulation parameters used for running the simulation, including saved data location.
+
+    Raises:
+    - FileNotFoundError: If the directory specified in `this_sim` does not exist.
+    - IOError: If there is an error writing the simulation file.
+    - subprocess.CalledProcessError: If there is an error running the simulation command.
+    - IOError: If there is an error reading the simulation results.
+    - IOError: If there is an error writing the simulation results to a file.
+    """
     # Make the directory if it doesn't exist
     if not os.path.exists(this_sim.directory):
         os.mkdir(this_sim.directory)
@@ -189,8 +252,22 @@ def run_sim(this_sim):
 
 
 def check_reaction_graph(this_sim):
+    """
+    Check the reaction graph for a given simulation. This uses the functionality in the AlChemy executable
+    to perform pairwise operations on the lambda expressions. The output is parsed, and then a reaction graph
+    is constructed. The reaction list, and count of the count of each lambda expression is saved to a file,
+    and then returned. 
 
-    # this_sim.write_sim()
+    Args:
+        this_sim (Simulation): The simulation object.
+
+    Returns:
+        tuple: A tuple containing the reaction list and the reaction graph.
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    """
     # Make the directory if it doesn't exist
     if not os.path.exists(this_sim.directory):
         os.mkdir(this_sim.directory)
@@ -215,7 +292,16 @@ def check_reaction_graph(this_sim):
     return save_data, rxn_graph
 
 def read_results(sim):
+    """
+    Read the results of a simulation.
 
+    Args:
+        sim (Simulation): The simulation object.
+
+    Returns:
+        dict: A dictionary containing the time-stamp as keys and the parsed data as values.
+
+    """
     # Get the directory
     dir = os.path.join(sim.directory, sim.name)
     all_files = glob.glob(dir + "*")
