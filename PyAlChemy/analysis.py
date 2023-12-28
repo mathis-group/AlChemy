@@ -194,7 +194,7 @@ def analyze_perturbed_files(fname):
         combined_ts_df["name"] = row["name"]
         all_ts_dfs.append(combined_ts_df)
     all_perturbed_df = pd.concat(all_ts_dfs)
-    # all_perturbed_df.to_csv("BigPerturbed_DF.csv")
+
     return all_perturbed_df
 
 def analyze_repeated_perturbation(seed_fname, p_motif="p_"):
@@ -268,11 +268,10 @@ def analyze_repeated_perturbation(seed_fname, p_motif="p_"):
     # This is a file that contains the metadata for the concatenated simulations
     all_perturbed_df = pd.concat(all_combined_dfs, ignore_index=True)
 
-    return all_perturbed_df
+    return all_perturbed_df, daughter_parent
 
 if __name__ == "__main__":
-    all_ts_df = analyze_repeated_perturbation("L0_seeds.csv")
+    all_ts_df, daughter_parent_dict = analyze_repeated_perturbation("L0_seeds.csv")
     all_ts_df.to_csv("L0_hunt_analyzed.csv")
-
     # all_ts_df = analyze_repeated_perturbation("L1_seeds.csv")
     # all_ts_df.to_csv("L1_hunt_analyzed.csv")

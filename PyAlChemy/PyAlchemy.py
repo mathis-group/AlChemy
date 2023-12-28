@@ -397,6 +397,21 @@ def merge_two_expression_files(f1, f2, max_count = None):
                 combined_ids = {k:v for k,v in combined_ids.items() if combined_counts[v] > 0}
     return combined_counts, combined_ids
 
+def merge_json_timeseries(json_list):
+
+    first_ts = json.load(open(json_list[0], "r"))
+    time_stamps = first_ts.keys()
+    time_stamps = [int(t) for t in time_stamps]
+    max_time = max(time_stamps)
+    for json_fname in json_list[1:]:
+        next_ts = json.load(open(json_fname, "r"))
+        next_ts_stamps = next_ts.keys()
+        next_ts_stamps_dict = {t: str(int(t) + max_time) for t in next_ts_stamps}
+        next_ts_updated = {next_ts_stamps_dict[t]:v for t,v in next_ts.items()}
+        first_ts = {**first_ts, **next_ts_updated}
+        max_time = max([int(t) for t in next_ts_updated.keys()])
+    return first_ts
+
 def write_expressions_to_file(counts, ids, fname):
     
     with open(fname, "w") as open_file:
