@@ -115,7 +115,7 @@ class Simulation:
                     "\t+------------------------------------------+\n"
 
                     "\tnumber of interaction laws =  1\n"
-                    "\tlaw (lambda expression) =  \\f.\\g.(f)g\n"
+                    "\tlaw (lambda expression) = \\f.\\g.(f)g\n" #
                     "\tprobability of law =  1.0\n")
         return output_str
 
@@ -447,6 +447,9 @@ def generate_reaction_graph(rxns):
 
     return rxn_graph
 
+def validate_expressions(exprs_list):
+
+    return None
 
 if __name__ == "__main__":
     print("Ran from main")

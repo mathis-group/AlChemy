@@ -5,6 +5,10 @@ import json
 from numpy import log10, mean, std, median, quantile
 import re
 import glob
+from PyAlchemy import parse_single_file
+from lambda_parse import lambda_to_net_props
+from look_for_L2 import typical_snapshot, last_snapshot
+
 
 
 def get_variables(lambda_str):
@@ -54,6 +58,27 @@ def get_new_expressions(timeseries):
         all_expressions.update(lambdas)
     return new_expr_timeseries
 
+# def get_tree_props(timeseries):
+#     #diameter_timeseries = dict()
+#     med_depth_timeseries = dict()
+#     branching_factor_timeseries = dict()
+
+#     for time_stamp, lambdas in timeseries.items():
+#         this_time = int(time_stamp)
+#         #diameters= []
+#         med_depths = []
+#         branching_factors = []
+#         for l in lambdas.keys():
+#             this_props = lambda_to_net_props(l)
+#             #diameters.append(this_props["diameter"])
+#             med_depths.append(this_props["med_depth"])
+#             branching_factors.append(this_props["branching_factor"])
+
+#         #diameter_timeseries[this_time] = diameters
+#         med_depth_timeseries[this_time] = med_depths
+#         branching_factor_timeseries[this_time] = branching_factors
+
+#     return med_depth_timeseries, branching_factor_timeseries
 
 def get_expression_lengths(timeseries):
     len_timeseries = dict()
@@ -91,6 +116,12 @@ def get_pop_entropy(timeseries):
         pop_e_timeseries[this_time] =  H
     return pop_e_timeseries
 
+def get_identity_count(timeseries):
+    I_count = dict()
+    for time_stamp, lambdas in timeseries.items():
+        this_time = int(time_stamp)
+        I_count[this_time] = lambdas.get("\\x1.x1", 0)
+    return I_count
 
 def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"]):
     """
@@ -134,8 +165,15 @@ def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"
         ave_vars = {k:mean(v) for k,v in var_ts.items()}  # Calculate the average number of variables
         std_vars = {k:std(v) for k,v in var_ts.items()}   # Calculate the standard deviation of variable counts
         med_vars = {k:median(v) for k,v in var_ts.items()}  # Calculate the median number of variables
-    
 
+    # if "tree_props" in vars:
+    #     # print("getting tree_props")
+    #     md_ts, bf_ts = get_tree_props(ts_data)
+
+    #     # med_d = {k:median(v) for k,v in d_ts.items()}
+    #     med_md = {k:median(v) for k,v in md_ts.items()}
+    #     med_bf = {k:median(v) for k,v in bf_ts.items()}
+    # print("Making df")
     # Create a DataFrame to store the time series data
     ts_df = pd.DataFrame([count_ts, entropy_ts, novel_ts]).T
     ts_df.columns = ["count", "pop_entropy", "new_exprs"]
@@ -150,26 +188,33 @@ def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"
     ts_df["ave_expr_len"] = ts_df["time_step"].map(ave_lengths)
     ts_df["std_expr_len"] = ts_df["time_step"].map(std_lengths)
     ts_df["med_expr_len"] = ts_df["time_step"].map(med_lengths)
+    if "identity_count" in vars:
+        I_count = get_identity_count(ts_data)
+        ts_df["I_count"] = ts_df["time_step"].map(I_count)
+    # ts_df["med_diameter"] = ts_df["time_step"].map(med_d)
+    # ts_df["med_med_depth"] = ts_df["time_step"].map(med_md)
+    # ts_df["med_branching_factor"] = ts_df["time_step"].map(med_bf)
     
+
     ts_df.sort_index(inplace=True)
     return ts_df
 
 
-# def analyze_runs(input_files):
+def analyze_runs(input_files, vars = ["count", "entropy", "lengths", "n_vars", "n_novel"]):
 
-#     input_runs = pd.read_csv(input_files,index_col=0)
-#     all_files = input_runs["savename"]
-#     all_dfs = []
-#     for fname in tqdm.tqdm(all_files):
-#         with open(fname, "r") as f:
-#             ts_data = json.load(f)
-#         ave_ts_data = make_ts_df(ts_data)
-#         ave_ts_data["savename"] = fname
-#         all_dfs.append(ave_ts_data)
-#     combined_df = pd.concat(all_dfs)
-#     merged_df = combined_df.join(input_runs.set_index("savename"), on = "savename")
-#     merged_df.to_csv("RerunDF.csv")
+    input_runs = pd.read_csv(input_files,index_col=0)
+    all_files = input_runs["savename"]
+    all_dfs = []
+    for fname in tqdm.tqdm(all_files):
+        with open(fname, "r") as f:
+            ts_data = json.load(f)
+        ave_ts_data = make_ts_df(ts_data, vars=vars)
+        ave_ts_data["savename"] = fname
+        all_dfs.append(ave_ts_data)
+    combined_df = pd.concat(all_dfs)
+    merged_df = combined_df.join(input_runs.set_index("savename"), on = "savename")
 
+    return merged_df
 
 def analyze_perturbed_files(fname):
 
@@ -197,7 +242,7 @@ def analyze_perturbed_files(fname):
 
     return all_perturbed_df
 
-def analyze_repeated_perturbation(seed_fname, p_motif="p_"):
+def analyze_repeated_perturbation(seed_fname, p_motif="p_", vars = ["count", "entropy", "lengths", "n_vars", "n_novel"]):
     # Read the seed data
     # Find all files that match the pattern, which would be all files that represent perturbations of the seed state
     all_perturbation_fnames = glob.glob(f"{p_motif}*_{seed_fname}")
@@ -221,11 +266,11 @@ def analyze_repeated_perturbation(seed_fname, p_motif="p_"):
     for run_fname in all_perturbation_fnames:
         runs_df = pd.read_csv(run_fname)
         # Each row is another simulation run
-        for i, row in runs_df.iterrows():
+        for i, row in tqdm.tqdm(runs_df.iterrows()):
             ts_file = row["savename"]
             with open(ts_file, "r") as f:
                 ts_data = json.load(f)
-            ts_df = make_ts_df(ts_data)
+            ts_df = make_ts_df(ts_data, vars =vars)
             all_ts_dfs[ts_file] = ts_df
     # Starting with the last run, which is the daughter run with no daughter, find the parent of each run
     last_run = all_perturbation_fnames[0]
@@ -270,8 +315,127 @@ def analyze_repeated_perturbation(seed_fname, p_motif="p_"):
 
     return all_perturbed_df, daughter_parent
 
+
+def get_daughter_parent_sim_dict(seed_fname, p_motif = "p_"):
+    # Read the seed data
+    # seed_data = pd.read_csv(seed_fname)
+    # Find all perturbation data
+    all_perturbation_fnames = glob.glob(f"{p_motif}*_{seed_fname}")
+
+    # Make a map from source to parent
+    all_perturbation_fnames = sorted(all_perturbation_fnames, reverse=True)
+    daughter_parent = dict()
+    for p_fname in all_perturbation_fnames:
+        p_data = pd.read_csv(p_fname)
+        this_d_p_map = dict(zip(p_data["savename"],p_data["parent"]))
+        daughter_parent = {**daughter_parent, **this_d_p_map}
+    
+    savename = "daughter_parents_" + seed_fname.split(".")[0] + ".pickle"
+    with open(savename, "wb") as f:
+        pickle.dump(daughter_parent, f)
+
+def jaccard_composition(compo1, compo2):
+
+    A = set(compo1.keys())
+    B = set(compo2.keys())
+    C = A.intersection(B)
+    D = A.union(B)
+    return float(len(C))/float(len(D))
+
+def percent_similarity(compo1, compo2):
+
+    min_counts = []
+    A = set(compo1.keys())
+    B = set(compo2.keys())
+    C = A.union(B)
+    d1 = 0
+    d2 = 0
+    for c in C:
+        a = compo1.get(c, 0)
+        b = compo2.get(c, 0)
+        d1 += a 
+        d2 += b 
+        min_counts.append( min(a,b) )
+
+    return 200.0*(sum(min_counts)/float(d1+d2))
+
+def get_autocorrelations(metadata_fname):
+    all_data = pd.read_csv(metadata_fname)
+    ac_dats = []
+    for i, row in all_data.iterrows():
+        fname = row["savename"]
+        ac_data = composition_autocorrelation(fname)
+        ac_data["savename"] = fname
+        ac_dats.append(ac_data)
+    all_data = pd.concat(ac_dats)
+    return all_data
+
+def get_l2_compositions(s1_name, s2_name, combined_fname):
+    
+    # First read the compositions of the two seeds from the typical files
+    s1_ts = json.load(open(s1_name, "r"))
+    s1_typical, _ = last_snapshot(s1_ts)
+
+    s2_ts = json.load(open(s2_name, "r"))
+    s2_typical, _ = last_snapshot(s2_ts)
+
+    s1_exprs = set([k for k in s1_typical.keys()])
+    s2_exprs = set([k for k in s2_typical.keys()])
+
+    s1_exprs_only = s1_exprs - s2_exprs
+    s2_exprs_only = s2_exprs - s1_exprs
+    common_exprs = s1_exprs.intersection(s2_exprs)
+    # Read the combined timeseries
+    combined_ts = json.load(open(combined_fname, "r"))
+    combined_typical, _ = last_snapshot(combined_ts)
+    combined_exprs = set([k for k in combined_typical.keys()])
+    novel_exprs = combined_exprs - s1_exprs - s2_exprs
+    # Identify expressions unique to seed 1 and seed 2
+
+    # Find unique expressions from seed 1 in the combined timeseries
+    coarse_ts = dict()
+    for t, counts in combined_ts.items():
+        s1_counts = {k:v for k,v in counts.items() if k in s1_exprs_only}
+        s2_counts = {k:v for k,v in counts.items() if k in s2_exprs_only}
+        common_counts = {k:v for k,v in counts.items() if k in common_exprs}
+        novel_counts = {k:v for k,v in counts.items() if k in novel_exprs}
+        coarse_ts[t] = {"s1":sum(s1_counts.values()), 
+                            "s2":sum(s2_counts.values()),
+                            "common":sum(common_counts.values()),
+                            "novel":sum(novel_counts.values())}
+    
+    return coarse_ts
+
+def compare_ts(ts_1_fname, ts_2_fname):
+
+    ts1 = json.load(open(ts_1_fname, "r"))
+    ts2 = json.load(open(ts_2_fname, "r"))
+    sim_ts = dict()
+    for t in ts1.keys():
+        sim_ts[t] = jaccard_composition(ts1[t], ts2[t])
+    return sim_ts
+
+def compare_ts_to_fixed_composition(ts_fname, fixed_composition):
+    ts1 = json.load(open(ts_fname, "r"))
+    sim_ts = dict()
+    for t in ts1.keys():
+        sim_ts[t] = jaccard_composition(ts1[t], fixed_composition)
+    return sim_ts
+
+def composition_autocorrelation(ts_fname):
+    ts1 = json.load(open(ts_fname, "r"))
+    sim_ts = dict()
+    ntimes = len(ts1.keys())
+    lines = []
+    for t1 in range(ntimes):
+        for t2 in range(t1):
+            l = {"t1":t1, "t2":t2, "sim":percent_similarity(ts1[str(t1)], ts1[str(t2)]), "lag":t1-t2}
+            lines.append(l)
+    sim_ts = pd.DataFrame(lines)
+    return sim_ts
+
+
 if __name__ == "__main__":
-    all_ts_df, daughter_parent_dict = analyze_repeated_perturbation("L0_seeds.csv")
-    all_ts_df.to_csv("L0_hunt_analyzed.csv")
-    # all_ts_df = analyze_repeated_perturbation("L1_seeds.csv")
-    # all_ts_df.to_csv("L1_hunt_analyzed.csv")
+    # all_ts_df, daughter_parent_dict = analyze_repeated_perturbation("L0_seeds.csv")
+    # all_ts_df.to_csv("L0_hunt_analyzed.csv")
+    print("hello")

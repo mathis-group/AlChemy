@@ -5,7 +5,12 @@ import re
 from enum import Enum
 import collections
 import networkx as nx
+import pickle
+import os
 import numpy as np
+
+TREE_DICT_SAVENAME = "tree_dict.pickle"
+TREE_DICT = pickle.load(open(TREE_DICT_SAVENAME, "rb")) if os.path.exists(TREE_DICT_SAVENAME) else dict()
 
 class ASTNode:
     def __init__(self, left: ASTNode, right: ASTNode):
@@ -121,11 +126,9 @@ class ASTNode:
                 r_lambda = self.right.tolambda()
                 return f"({l_lambda})({r_lambda})"
 
-
 class AST:
     def __init__(self):
         pass
-
 
 class TokenType(Enum):
     LBRACE = 0
@@ -266,21 +269,37 @@ def lambda_to_nx(lambda_exp: str) -> nx.DiGraph:
 
 def compute_network_props(ditree: nx.DiGraph()) -> dict:
     nodes = ditree.nodes()
+    n_nodes = len(nodes)
     root = max(nodes)
     depths = nx.shortest_path_length(ditree, root)
     degrees = ditree.out_degree(nodes)
-    
+    c_factor = np.log2(n_nodes) / max(depths.values())
+
     props = {
         # "diameter": nx.diameter(nx.Graph(ditree)),
+        "n_nodes": n_nodes,
+        "c_factor": c_factor,
         "med_depth": np.median([v for _,v in depths.items() if _ != root]),
-        "branching_factor": np.mean([d[1] for d in degrees if d[1] > 0])
+        "branching_factor": np.mean([d[1] for d in degrees if d[1] > 0]),
+        "tree": ditree
     }
 
     return props
 
 def lambda_to_net_props(lambda_expr):
-    ditree = lambda_to_nx(lambda_expr)
-    return compute_network_props(ditree)
+    if TREE_DICT:
+        ditree_props = TREE_DICT.get(lambda_expr, None)
+        if ditree_props:
+            return ditree_props
+        else:
+            ditree = lambda_to_nx(lambda_expr)
+            ditree_props = compute_network_props(ditree)
+            TREE_DICT[lambda_expr] = compute_network_props(ditree)
+            pickle.dump(TREE_DICT, open(TREE_DICT_SAVENAME, "wb"))
+            return ditree_props
+    else:
+        ditree = lambda_to_nx(lambda_expr)
+        return compute_network_props(ditree)
 
 # def main():
 #     ex_string = r"\x1.\x2.\x3.\x4.\x5.\x6.\x7.\x8.(((((x4)\x9.\x10.\x11.\x12.\x13.\x14.((x10)x10)(x14)x9)\x15.\x16.\x17.\x18.\x19.\x20.((x16)x16)(x20)x15)\x21.\x22.\x23.\x24.\x25.\x26.((x22)x22)(x26)x21)(((x4)\x27.\x28.\x29.\x30.\x31.\x32.((x28)x28)(x32)x27)\x33.\x34.\x35.\x36.\x37.\x38.((x34)x34)(x38)x33)\x39.\x40.\x41.\x42.\x43.\x44.((x40)x40)(x44)x39)(x8)\x45.\x46.\x47.\x48.\x49.\x50.((x46)x46)(x50)x45"
