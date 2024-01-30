@@ -7,8 +7,15 @@
 .vscode
 */__pycache__
 PyAlChemy/run_data/*
+PyAlChemy/**/*.inp
 */ALCHEMY
 *.pairs
 *.log
 notebooks/*.ipynb
 *.ipynb_checkpoints
+*.svg
+*.pyc
+*.pickle
+*.jpeg
+*.jpg
+*.png
