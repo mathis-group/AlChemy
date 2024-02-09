@@ -119,6 +119,7 @@ def get_last_from_runs(long_runs):
 
 
 def run_compositions(compositions):
+    seed_incr = 0
     all_sims = []
     names_compositions = [k for k in compositions.items()]
     print(names_compositions)
@@ -142,13 +143,14 @@ def run_compositions(compositions):
                 write_expressions_to_file(combined_compo, combined_ids, combo_name)
 
                 # Run sims
-                for i in range(20):
+                for k in range(5):
+                    seed_incr += k
                     randomizer = LambdaRandomizer(max_depth=4, bind_all_free_vars=True)
                     n_collisions = max_obs*1000
                     output_freq = int(n_collisions/100)
-                    this_sim = Simulation(combo_name + f"_run{i}_", DIRNAME, 
+                    this_sim = Simulation(combo_name + f"_run{k}_", DIRNAME, 
                                             LambdaReducer(heap = HEAP_SIZE, max_steps=MAX_STEPS),
-                                            randomizer, RSEED + i, max_obs,
+                                            randomizer, RSEED + seed_incr, max_obs,
                                             n_collisions, output_freq, copy_allowed=False, 
                                             input_file=combo_name)
                     this_sim_params = run_sim(this_sim)

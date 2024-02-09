@@ -5,10 +5,10 @@ import json
 import pandas as pd
 import random
 import networkx as nx
-import pickle
+import time
 
 LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
-
+# TODO can we make this relative? 
 class Simulation:
     """
     A class representing a simulation.
@@ -447,25 +447,59 @@ def generate_reaction_graph(rxns):
 
     return rxn_graph
 
-def validate_expressions(exprs_list):
+# def reduce_expression(expr):
 
-    return None
+def interact_with_tool(command, commands_to_send):
+    # Start the command line tool and open pipes to stdin, stdout, and stderr
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    stdout_data = ""
+    try:
+        # Send commands to the command line tool
+        for cmd in commands_to_send:
+            process.stdin.write(cmd + "\n")
+            process.stdin.flush()
+            # Wait a bit for the command to be processed
+            time.sleep(1)
+
+        # Terminate the process
+        process.terminate()
+        # Wait for the process to terminate and get the output
+        stdout_data, stderr_data = process.communicate()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        process.terminate()
+        process.wait()
+
+    return stdout_data
+
+    
 
 if __name__ == "__main__":
-    print("Ran from main")
-    randomizer = LambdaRandomizer()
-    reducer = LambdaReducer()
+    # print("Ran from main")
+    # randomizer = LambdaRandomizer()
+    # reducer = LambdaReducer()
 
-    name = "test_py"
-    directory = "test"
-    max_obs = 1000
-    n_collisions = 100000
-    output_freq = int(n_collisions/100.0)
+    # name = "test_py"
+    # directory = "test"
+    # max_obs = 1000
+    # n_collisions = 100000
+    # output_freq = int(n_collisions/100.0)
 
-    this_sim = Simulation(name, directory, reducer, randomizer,
-               1001011337, max_obs, n_collisions, output_freq)
-    run_data = run_sim(this_sim)
-    last_file_input_file = f"{run_data['directory']}/{run_data['name']}100"
-    check_sim = Simulation(name, directory, reducer, randomizer,
-               1001011337, max_obs, n_collisions, output_freq, input_file= last_file_input_file)
-    save_data, rxn_graph = check_reaction_graph(check_sim)
+    # this_sim = Simulation(name, directory, reducer, randomizer,
+    #            1001011337, max_obs, n_collisions, output_freq)
+    # run_data = run_sim(this_sim)
+    # last_file_input_file = f"{run_data['directory']}/{run_data['name']}100"
+    # check_sim = Simulation(name, directory, reducer, randomizer,
+    #            1001011337, max_obs, n_collisions, output_freq, input_file= last_file_input_file)
+    # save_data, rxn_graph = check_reaction_graph(check_sim)
+    # out = reduce_expression("\\x1.x1")
+    # print(out)
+
+    # Example usage
+    command = ["../LambdaReactor/lambda"]
+    commands_to_send = ["1", "eval \\x1.x1;"]
+    output = interact_with_tool(command, commands_to_send)
+    print("Output:")
+    print(output)

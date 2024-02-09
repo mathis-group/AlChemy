@@ -7,6 +7,7 @@ from PyAlchemy import check_reaction_graph
 import os
 import pickle
 import json
+import numpy as np
 import copy
 import random
 
@@ -77,16 +78,17 @@ def run_compositions(compositions, n_copiers = [999, 998, 995, 990, 900, 500]):
     
     names_compositions = [k for k in compositions.items()]
     
-    for i in range(len(names_compositions)):
-        fname1, compo1 = names_compositions[i]
-        # Get base names
-        base1 = os.path.basename(fname1).split(".")[0]
+    for c_count in n_copiers:
+        for i in range(len(names_compositions)):
+            fname1, compo1 = names_compositions[i]
+            # Get base names
+            base1 = os.path.basename(fname1).split(".")[0]
 
-        for c_count in n_copiers:
+            # for c_count in n_copiers:
             current_copy = 0
             combo_name = base1 + f"_copy_{c_count}"
             # Run sims
-            for i in range(20):
+            for i in range(4):
                 # Get combined composition
                 combined_compo = copy.deepcopy(compo1[0])
                 combined_compo = remove_down_to_n(combined_compo, 1000 - c_count)
@@ -150,6 +152,7 @@ if __name__ == "__main__":
     seed_incr = 0
     
     int_runs = pd.read_csv("../L0_source/L0_interesting_runs.csv")
+    int_runs = int_runs[:50]
     all_files= [k for k in int_runs["savename"]]
     all_files = list(set(all_files))
     copy_files(all_files, "../L0_source/", "run_data")
