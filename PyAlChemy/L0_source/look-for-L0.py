@@ -21,7 +21,7 @@ HEAP_SIZE = 800
 MAX_STEPS = 500
 RANDOM_DEPTH_MIN = 4
 RANDOM_DEPTH_MAX = 9
-N = 50
+N = 1000
 
 def generate_random_perturbation_expressions(n, d):
     randomizer = LambdaRandomizer(max_depth=d, bind_all_free_vars=BIND_FREE_VARS)

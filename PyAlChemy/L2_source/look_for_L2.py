@@ -82,7 +82,7 @@ def run_L2_seeds(input_file, daughter_parents):
         write_expressions_to_file(typical_counts, typical_ids, base_fname + "_typical" )
         randomizer = LambdaRandomizer(max_depth=4, bind_all_free_vars=True)
         name = f"{base_fname}_"
-        n_collisions = max_obs * 100 
+        n_collisions = max_obs * 10
         output_freq = int(n_collisions/100)
         this_sim = Simulation(name, DIRNAME, LambdaReducer(heap = HEAP_SIZE, max_steps=MAX_STEPS),
                                 randomizer, RSEED + 100 + seed_incr, max_obs,
@@ -146,7 +146,7 @@ def run_compositions(compositions):
                 for k in range(5):
                     seed_incr += k
                     randomizer = LambdaRandomizer(max_depth=4, bind_all_free_vars=True)
-                    n_collisions = max_obs*1000
+                    n_collisions = max_obs*100
                     output_freq = int(n_collisions/100)
                     this_sim = Simulation(combo_name + f"_run{k}_", DIRNAME, 
                                             LambdaReducer(heap = HEAP_SIZE, max_steps=MAX_STEPS),
