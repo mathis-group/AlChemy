@@ -1,6 +1,3 @@
 [submodule "camllight"]
 	path = camllight
 	url = https://git.sr.ht/~dglmoore/camllight
-[submodule "PyLambda-OG"]
-	path = PyLambda-OG
-	url = https://github.com/mathisgroup/PyLambda-OG
