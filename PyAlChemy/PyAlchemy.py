@@ -2,10 +2,8 @@ import subprocess
 import os
 import glob
 import json
-import pandas as pd
 import random
 import networkx as nx
-import time
 
 LAMBDA_PATH = "/mnt/c/Users/colem/Desktop/AlChemy/LambdaReactor"
 # TODO can we make this relative? 
@@ -235,6 +233,8 @@ def run_sim(this_sim):
     this_sim.write_sim()
     sim_params = this_sim.get_sim_params()
     savename = os.path.join("run_data", str(hash(str(sim_params))) + '.json')
+    if not os.path.exists(os.path.dirname(savename)):
+        os.mkdir(os.path.dirname(savename))
     sim_params["savename"] = savename
     # Run the simulation
     # Get the relative path to input
@@ -440,10 +440,8 @@ def generate_reaction_graph(rxns):
             all_edges.extend(these_edges)
         rxn_num += 1
 
-
     all_expression_nodes = list(set(all_expression_nodes))
-    #all_expression_nodes = [int(i) for i in all_expression_nodes]
-
+    
     rxn_graph = nx.DiGraph()
     rxn_graph.add_nodes_from(all_expression_nodes, bipartite=0)
     rxn_graph.add_nodes_from(all_rxn_nodes, bipartite=1)
@@ -451,34 +449,6 @@ def generate_reaction_graph(rxns):
 
     return rxn_graph
 
-# def reduce_expression(expr):
-
-def interact_with_tool(command, commands_to_send):
-    # Start the command line tool and open pipes to stdin, stdout, and stderr
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    stdout_data = ""
-    try:
-        # Send commands to the command line tool
-        for cmd in commands_to_send:
-            process.stdin.write(cmd + "\n")
-            process.stdin.flush()
-            # Wait a bit for the command to be processed
-            time.sleep(1)
-
-        # Terminate the process
-        process.terminate()
-        # Wait for the process to terminate and get the output
-        stdout_data, stderr_data = process.communicate()
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        process.terminate()
-        process.wait()
-
-    return stdout_data
-
-    
 
 if __name__ == "__main__":
     print("Ran from main")
@@ -492,18 +462,7 @@ if __name__ == "__main__":
     output_freq = int(n_collisions/100.0)
 
     this_sim = Simulation(name, directory, reducer, randomizer,
-               1001011337, max_obs, n_collisions, output_freq)
+                            1001011337, max_obs, n_collisions, output_freq)
     run_data = run_sim(this_sim)
-    last_file_input_file = f"{run_data['directory']}/{run_data['name']}100"
-    check_sim = Simulation(name, directory, reducer, randomizer,
-               1001011337, max_obs, n_collisions, output_freq, input_file= last_file_input_file)
-    save_data, rxn_graph = check_reaction_graph(check_sim)
-    # out = reduce_expression("\\x1.x1")
-    # print(out)
-
-    # Example usage
-    # command = ["../LambdaReactor/lambda"]
-    # commands_to_send = ["1", "eval \\x1.x1;"]
-    # output = interact_with_tool(command, commands_to_send)
-    # print("Output:")
-    # print(output)
+    
+    print(run_data)

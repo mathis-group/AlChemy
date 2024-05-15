@@ -1,22 +1,22 @@
-import sys
-sys.path.insert(0, '..')
 
 import pandas as pd
-import time
-from PyAlchemy import Simulation, LambdaRandomizer, LambdaReducer
-from PyAlchemy import run_sim, merge_two_expression_files, write_expressions_to_file
-from PyAlchemy import check_reaction_graph, merge_json_timeseries
 import pickle
 import os
 import numpy as np
 import json
+import sys
+
+sys.path.insert(0, '..')
+from PyAlchemy import Simulation, LambdaRandomizer, LambdaReducer
+from PyAlchemy import run_sim, write_expressions_to_file
+from PyAlchemy import merge_json_timeseries
 
 if not os.path.exists("run_data"):
     os.mkdir("run_data")
 
 
 DIRNAME = "hunt_for_L2"
-RSEED = 137 #random.randrange(sys.maxsize)
+RSEED = 808
 
 HEAP_SIZE = 800
 MAX_STEPS = 500
@@ -48,7 +48,6 @@ def last_snapshot(ts_dict, normed = False):
     ids = {v:k for k,v in enumerate(last_counts)}
 
     return last_counts,ids
-
 
 def run_L2_seeds(input_file, daughter_parents):
     """This is a hot mess, rewrite it all with more care."""
@@ -170,7 +169,6 @@ if __name__ == "__main__":
     seed_incr = 0
     daughter_parents = pickle.load(open("../L1_source/L1_daughter_parent_map.pickle", "rb"))
     # Copy run_data from L1_source
-    
     all_files = [k for k in daughter_parents.values()]
     all_files.extend([k for k in daughter_parents.keys()])
     # We shouldn't need this last bit here, but I'm not sure why it's not working

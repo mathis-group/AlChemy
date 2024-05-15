@@ -12,9 +12,13 @@ RUN apt-get install make
 RUN apt-get update && apt-get install -y python3.11
 # This makes sure that CMD [python] does what you think
 RUN apt-get install -y python-is-python3
+RUN apt-get install -y python3-pip
 
 WORKDIR /home/AlChemy
 COPY . .
 WORKDIR /home/AlChemy/LambdaReactor
 RUN make clean
 RUN make CC=gcc-11
+
+WORKDIR /home/AlChemy/PyAlChemy
+RUN pip3 install -r requirements.txt

@@ -9,12 +9,12 @@ from PyAlchemy import check_reaction_graph
 import os
 
 DIRNAME = "hunt_for_L1"
-RSEED = 137 #random.randrange(sys.maxsize)
-print(RSEED)
+RSEED = 137
+
 if not os.path.exists("run_data"):
     os.mkdir("run_data")
 
-
+BIND_FREE_VARS = True
 MAX_OBS = 1000
 HEAP_SIZE = 800
 MAX_STEPS = 500
@@ -116,14 +116,7 @@ def rerun_from_input(seed_df, n_collisions, output_dfname= None):
 
 
 if __name__ == "__main__":
-    # BIND_FREE_VARS = False
-    # seed_files = run_L1_seed()
-    # # seed_files.to_csv("L1_seeds.csv")
-    # for i in range(5):
-    #     random_exprs_data = generate_random_perturbation_expressions(int(MAX_OBS/10.0), 4)
-    #     merged_files = perturb_all_seeds(seed_files, random_exprs_data)
-    #     seed_files = rerun_from_input(merged_files, 1000000, output_dfname=f"p_{i}_L1_seeds.csv")
-    BIND_FREE_VARS = True
+    
     seed_files = run_L1_seed()
     # seed_files.to_csv("L1_seeds.csv")
     for i in range(5):
