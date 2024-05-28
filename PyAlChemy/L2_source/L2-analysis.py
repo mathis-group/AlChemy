@@ -15,7 +15,6 @@ def get_last_from_data(filename):
 
     return last_snap
 
-
 def get_original_compositions(fnames):
 
     og_compositions = dict()

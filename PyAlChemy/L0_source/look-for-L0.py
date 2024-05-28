@@ -4,16 +4,13 @@ import pandas as pd
 import time
 from PyAlchemy import Simulation, LambdaRandomizer, LambdaReducer
 from PyAlchemy import run_sim, merge_two_expression_files, write_expressions_to_file
-from PyAlchemy import check_reaction_graph
 import os
 
 
 DIRNAME = "hunt_for_L0"
-RSEED = 137 #random.randrange(sys.maxsize)
-print(RSEED)
+RSEED = 1337
 if not os.path.exists("run_data"):
     os.mkdir("run_data")
-
 
 BIND_FREE_VARS = True
 MAX_OBS = 1000
@@ -21,7 +18,7 @@ HEAP_SIZE = 800
 MAX_STEPS = 500
 RANDOM_DEPTH_MIN = 4
 RANDOM_DEPTH_MAX = 9
-N = 50
+N = 1000
 
 def generate_random_perturbation_expressions(n, d):
     randomizer = LambdaRandomizer(max_depth=d, bind_all_free_vars=BIND_FREE_VARS)
@@ -116,16 +113,10 @@ def rerun_from_input(seed_df, n_collisions, output_dfname= None):
 
 
 if __name__ == "__main__":
-    # BIND_FREE_VARS = False
-    # seed_files = run_L0_seed()
-    # # seed_files.to_csv("L0_seeds.csv")
-    # for i in range(5):
-    #     random_exprs_data = generate_random_perturbation_expressions(int(MAX_OBS/10.0), 4)
-    #     merged_files = perturb_all_seeds(seed_files, random_exprs_data)
-    #     seed_files = rerun_from_input(merged_files, 1000000, output_dfname=f"p_{i}_L0_seeds.csv")
-    # BIND_FREE_VARS = True
+    # Generate the initial files
     seed_files = run_L0_seed()
-    # seed_files.to_csv("L0_seeds.csv")
+    seed_files.to_csv("L0_seeds.csv")
+    # Perform repeated perturbation by adding random expressions too the system
     for i in range(5):
         random_exprs_data = generate_random_perturbation_expressions(int(MAX_OBS/10.0), 4)
         merged_files = perturb_all_seeds(seed_files, random_exprs_data)

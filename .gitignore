@@ -13,6 +13,7 @@ PyAlChemy/**/*.inp
 *.log
 notebooks/*.ipynb
 *.ipynb_checkpoints
+*.ipynb
 *.svg
 *.pyc
 *.pickle

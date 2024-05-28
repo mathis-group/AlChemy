@@ -29,9 +29,13 @@ def compare_all_pairs(repeated_df):
                 for j in range(i+1,n):
                     savename1 = savenames[i]
                     savename2 = savenames[j]
-                    perc_sim_ts = analysis.compare_ts(savename1, savename2)
-                    this_df = pd.DataFrame(list(zip(perc_sim_ts.keys(), perc_sim_ts.values())),
-                            columns=['time', 'prec_similiar'])
+                    sim_ts = analysis.compare_ts(savename1, savename2)
+                    jaccard_ts = {k:v["jaccard_composition"] for k,v in sim_ts.items()}
+                    ac_ts = analysis.autocorrelation_fixed(savename1, lag = 10)
+                    ac_jaccard_ts = {k:v["jaccard_composition"] for k,v in ac_ts.items()}
+                    this_df = pd.DataFrame(list(zip(jaccard_ts.keys(), jaccard_ts.values())),
+                            columns=['time', 'jaccard_composition'])
+                    this_df["ac_lag5"] = this_df["time"].map(ac_jaccard_ts)
                     this_df["savename1"] = savename1
                     this_df["savename2"] = savename2
                     this_df["seed"] = seed
@@ -73,10 +77,10 @@ def parse_run_name(name):
 
 if __name__ == "__main__":
     all_ts_df = analysis.analyze_runs("repeated_L1_runs.csv", ["count", "entropy", "lengths", "n_vars", "n_novel"])
-    all_ts_df.to_csv("repeated_L1_runs_analyzed.csv")
+    all_ts_df.to_csv("repeated_L1_runs_analyzed_2.csv")
     
     compare_df = compare_all_pairs(pd.read_csv("repeated_L1_runs.csv"))
-    compare_df.to_csv("repeated_L1_runs_comparisons.csv")
+    compare_df.to_csv("repeated_L1_runs_comparisons_2.csv")
 
-    df_list = convert_all_ts_to_df("repeated_L1_runs.csv")
-    print("analyze")
+    # df_list = convert_all_ts_to_df("repeated_L1_runs.csv")
+    # print("analyze")

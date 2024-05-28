@@ -7,7 +7,6 @@ import re
 import glob
 from PyAlchemy import parse_single_file
 from lambda_parse import lambda_to_net_props
-from look_for_L2 import typical_snapshot, last_snapshot
 
 
 
@@ -58,27 +57,27 @@ def get_new_expressions(timeseries):
         all_expressions.update(lambdas)
     return new_expr_timeseries
 
-# def get_tree_props(timeseries):
-#     #diameter_timeseries = dict()
-#     med_depth_timeseries = dict()
-#     branching_factor_timeseries = dict()
+def get_tree_props(timeseries):
+    cfactor_timeseries = dict()
+    med_depth_timeseries = dict()
+    branching_factor_timeseries = dict()
 
-#     for time_stamp, lambdas in timeseries.items():
-#         this_time = int(time_stamp)
-#         #diameters= []
-#         med_depths = []
-#         branching_factors = []
-#         for l in lambdas.keys():
-#             this_props = lambda_to_net_props(l)
-#             #diameters.append(this_props["diameter"])
-#             med_depths.append(this_props["med_depth"])
-#             branching_factors.append(this_props["branching_factor"])
+    for time_stamp, lambdas in tqdm.tqdm(timeseries.items()):
+        this_time = int(time_stamp)
+        c_factors = []
+        med_depths = []
+        branching_factors = []
+        for l in lambdas.keys():
+            this_props = lambda_to_net_props(l)
+            c_factors.append(this_props["c_factor"])
+            med_depths.append(this_props["med_depth"])
+            branching_factors.append(this_props["branching_factor"])
 
-#         #diameter_timeseries[this_time] = diameters
-#         med_depth_timeseries[this_time] = med_depths
-#         branching_factor_timeseries[this_time] = branching_factors
+        cfactor_timeseries[this_time] = c_factors
+        med_depth_timeseries[this_time] = med_depths
+        branching_factor_timeseries[this_time] = branching_factors
 
-#     return med_depth_timeseries, branching_factor_timeseries
+    return med_depth_timeseries, branching_factor_timeseries, cfactor_timeseries
 
 def get_expression_lengths(timeseries):
     len_timeseries = dict()
@@ -121,6 +120,13 @@ def get_identity_count(timeseries):
     for time_stamp, lambdas in timeseries.items():
         this_time = int(time_stamp)
         I_count[this_time] = lambdas.get("\\x1.x1", 0)
+    return I_count
+
+def get_expr_count(timeseries, expr):
+    I_count = dict()
+    for time_stamp, lambdas in timeseries.items():
+        this_time = int(time_stamp)
+        I_count[this_time] = lambdas.get(expr, 0)
     return I_count
 
 def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"]):
@@ -166,13 +172,13 @@ def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"
         std_vars = {k:std(v) for k,v in var_ts.items()}   # Calculate the standard deviation of variable counts
         med_vars = {k:median(v) for k,v in var_ts.items()}  # Calculate the median number of variables
 
-    # if "tree_props" in vars:
-    #     # print("getting tree_props")
-    #     md_ts, bf_ts = get_tree_props(ts_data)
+    if "tree_props" in vars:
+        # print("getting tree_props")
+        md_ts, bf_ts, cf_ts = get_tree_props(ts_data)
 
-    #     # med_d = {k:median(v) for k,v in d_ts.items()}
-    #     med_md = {k:median(v) for k,v in md_ts.items()}
-    #     med_bf = {k:median(v) for k,v in bf_ts.items()}
+        med_cf = {k:median(v) for k,v in cf_ts.items()}
+        med_md = {k:median(v) for k,v in md_ts.items()}
+        med_bf = {k:median(v) for k,v in bf_ts.items()}
     # print("Making df")
     # Create a DataFrame to store the time series data
     ts_df = pd.DataFrame([count_ts, entropy_ts, novel_ts]).T
@@ -191,10 +197,12 @@ def make_ts_df(ts_data, vars=["count", "entropy", "lengths", "n_vars", "n_novel"
     if "identity_count" in vars:
         I_count = get_identity_count(ts_data)
         ts_df["I_count"] = ts_df["time_step"].map(I_count)
-    # ts_df["med_diameter"] = ts_df["time_step"].map(med_d)
-    # ts_df["med_med_depth"] = ts_df["time_step"].map(med_md)
-    # ts_df["med_branching_factor"] = ts_df["time_step"].map(med_bf)
     
+    if "tree_props" in vars:
+        ts_df["med_c_factor"] = ts_df["time_step"].map(med_cf)
+        ts_df["med_med_depth"] = ts_df["time_step"].map(med_md)
+        ts_df["med_branching_factor"] = ts_df["time_step"].map(med_bf)
+
 
     ts_df.sort_index(inplace=True)
     return ts_df
@@ -342,6 +350,19 @@ def jaccard_composition(compo1, compo2):
     D = A.union(B)
     return float(len(C))/float(len(D))
 
+def changed_expressions(compo1, compo2):
+
+    changed_counts = []
+    A = set(compo1.keys())
+    B = set(compo2.keys())
+    C = A.union(B)
+    
+    for c in C:
+        a = compo1.get(c, 0)
+        b = compo2.get(c, 0)
+        changed_counts.append( abs(a - b))
+    return sum(changed_counts)
+
 def percent_similarity(compo1, compo2):
 
     min_counts = []
@@ -362,7 +383,7 @@ def percent_similarity(compo1, compo2):
 def get_autocorrelations(metadata_fname):
     all_data = pd.read_csv(metadata_fname)
     ac_dats = []
-    for i, row in all_data.iterrows():
+    for i, row in tqdm.tqdm(all_data.iterrows()):
         fname = row["savename"]
         ac_data = composition_autocorrelation(fname)
         ac_data["savename"] = fname
@@ -412,7 +433,29 @@ def compare_ts(ts_1_fname, ts_2_fname):
     ts2 = json.load(open(ts_2_fname, "r"))
     sim_ts = dict()
     for t in ts1.keys():
-        sim_ts[t] = jaccard_composition(ts1[t], ts2[t])
+        j = jaccard_composition(ts1[t], ts2[t])
+        ps = percent_similarity(ts1[t], ts2[t])
+        ec = changed_expressions(ts1[t], ts2[t])
+        sim_ts[t] = {"jaccard_composition": j,
+                        "perc_sim":ps,
+                        "changed_exprs":ec}
+    return sim_ts
+
+def autocorrelation_fixed(ts_1_fname, lag = 1):
+
+    ts1 = json.load(open(ts_1_fname, "r"))
+    sim_ts = dict()
+    times = [int(k) for k in ts1.keys()]
+    for t in times:
+        if (t - lag) in times:
+            t1 = str(t)
+            t2 = str(t - lag)
+            j = jaccard_composition(ts1[t1], ts1[t2])
+            ps = percent_similarity(ts1[t1], ts1[t2])
+            ec = changed_expressions(ts1[t1], ts1[t2])
+            sim_ts[t1] = {"jaccard_composition": j,
+                            "perc_sim":ps,
+                            "changed_exprs":ec}
     return sim_ts
 
 def compare_ts_to_fixed_composition(ts_fname, fixed_composition):
@@ -422,14 +465,20 @@ def compare_ts_to_fixed_composition(ts_fname, fixed_composition):
         sim_ts[t] = jaccard_composition(ts1[t], fixed_composition)
     return sim_ts
 
-def composition_autocorrelation(ts_fname):
+def composition_autocorrelation(ts_fname, lag = None):
     ts1 = json.load(open(ts_fname, "r"))
     sim_ts = dict()
     ntimes = len(ts1.keys())
     lines = []
     for t1 in range(ntimes):
         for t2 in range(t1):
-            l = {"t1":t1, "t2":t2, "sim":percent_similarity(ts1[str(t1)], ts1[str(t2)]), "lag":t1-t2}
+            l = {"t1":t1, 
+                    "t2":t2, 
+                    "sim":jaccard_composition(ts1[str(t1)], ts1[str(t2)]), 
+                    "changed_exprs": changed_expressions(ts1[str(t1)], ts1[str(t2)]),
+                    "perc_sim": percent_similarity(ts1[str(t1)], ts1[str(t2)]),
+                    "lag":t1-t2, 
+                    "exprs": len(ts1[str(t1)].keys())}
             lines.append(l)
     sim_ts = pd.DataFrame(lines)
     return sim_ts

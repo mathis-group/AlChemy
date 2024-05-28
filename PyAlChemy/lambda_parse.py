@@ -9,6 +9,8 @@ import pickle
 import os
 import numpy as np
 
+# Here's some real ugly hacky work
+TICK = 0
 TREE_DICT_SAVENAME = "tree_dict.pickle"
 TREE_DICT = pickle.load(open(TREE_DICT_SAVENAME, "rb")) if os.path.exists(TREE_DICT_SAVENAME) else dict()
 
@@ -273,21 +275,24 @@ def compute_network_props(ditree: nx.DiGraph()) -> dict:
     root = max(nodes)
     depths = nx.shortest_path_length(ditree, root)
     degrees = ditree.out_degree(nodes)
-    c_factor = np.log2(n_nodes) / max(depths.values())
+    max_depth = max(depths.values())
+    c_factor = np.log2(n_nodes) / max_depth
 
     props = {
         # "diameter": nx.diameter(nx.Graph(ditree)),
         "n_nodes": n_nodes,
         "c_factor": c_factor,
+        "max_depth": max_depth,
         "med_depth": np.median([v for _,v in depths.items() if _ != root]),
-        "branching_factor": np.mean([d[1] for d in degrees if d[1] > 0]),
-        "tree": ditree
+        "branching_factor": np.mean([d[1] for d in degrees if d[1] > 0])
+        # "tree": ditree
     }
 
     return props
 
 def lambda_to_net_props(lambda_expr):
-    if TREE_DICT:
+    tick = 0
+    if TREE_DICT is not None:
         ditree_props = TREE_DICT.get(lambda_expr, None)
         if ditree_props:
             return ditree_props
@@ -295,10 +300,14 @@ def lambda_to_net_props(lambda_expr):
             ditree = lambda_to_nx(lambda_expr)
             ditree_props = compute_network_props(ditree)
             TREE_DICT[lambda_expr] = compute_network_props(ditree)
-            pickle.dump(TREE_DICT, open(TREE_DICT_SAVENAME, "wb"))
+            tick += 1
+            # if tick % 100 == 0:
+            #     pickle.dump(TREE_DICT, open(TREE_DICT_SAVENAME, "wb"))
+            ditree_props["expression"] = lambda_expr
             return ditree_props
     else:
         ditree = lambda_to_nx(lambda_expr)
+        ditree_props["expression"] = lambda_expr
         return compute_network_props(ditree)
 
 # def main():

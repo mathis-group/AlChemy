@@ -2,12 +2,10 @@ import subprocess
 import os
 import glob
 import json
-import pandas as pd
 import random
 import networkx as nx
-import time
 
-LAMBDA_PATH = "/mnt/c/Users/cmathis6/Desktop/AlChemy/LambdaReactor"
+LAMBDA_PATH = "/mnt/c/Users/colem/Desktop/AlChemy/LambdaReactor"
 # TODO can we make this relative? 
 class Simulation:
     """
@@ -235,6 +233,8 @@ def run_sim(this_sim):
     this_sim.write_sim()
     sim_params = this_sim.get_sim_params()
     savename = os.path.join("run_data", str(hash(str(sim_params))) + '.json')
+    if not os.path.exists(os.path.dirname(savename)):
+        os.mkdir(os.path.dirname(savename))
     sim_params["savename"] = savename
     # Run the simulation
     # Get the relative path to input
@@ -251,7 +251,7 @@ def run_sim(this_sim):
     return sim_params
 
 
-def check_reaction_graph(this_sim):
+def check_reaction_graph(this_sim, output_file = None):
     """
     Check the reaction graph for a given simulation. This uses the functionality in the AlChemy executable
     to perform pairwise operations on the lambda expressions. The output is parsed, and then a reaction graph
@@ -260,6 +260,7 @@ def check_reaction_graph(this_sim):
 
     Args:
         this_sim (Simulation): The simulation object.
+        output_file (string): The location you want to save the reaction graph to
 
     Returns:
         tuple: A tuple containing the reaction list and the reaction graph.
@@ -278,15 +279,18 @@ def check_reaction_graph(this_sim):
 
     # Read/re-write the outputs
     reactions = parse_pairwise_file(ouput_file)
+    reactions = [r for r in reactions if "+" not in r]
     rxn_graph = generate_reaction_graph(reactions)
 
     # Check the count data and expressions
     count_dict, lambda_id_dict = parse_single_file(this_sim.input_file)
     id_counts = {lambda_id_dict[k]:v for k,v in count_dict.items()}
-
+    id_to_lambdas = {v: k for k,v in lambda_id_dict.items()}
+    print(id_to_lambdas)
     save_data = {'reaction_list': reactions, "counts": id_counts}
-    save_fname = this_sim.input_file + "_rxn_graph.json"
-    with open(save_fname, "w") as f:
+    if not output_file:
+        output_file = this_sim.input_file + "_rxn_graph.json"
+    with open(output_file, "w") as f:
         json.dump(save_data, f)
 
     return save_data, rxn_graph
@@ -427,19 +431,17 @@ def generate_reaction_graph(rxns):
     all_edges = []
     rxn_num = 0
     for r in rxns:
-        all_expression_nodes.extend(r)
-        all_rxn_nodes.append(f"rxn_{rxn_num}")
-
-        these_edges = [(r[0],f"rxn_{rxn_num}" ), 
-                       (r[1],f"rxn_{rxn_num}" ),
-                       (f"rxn_{rxn_num}",r[2])]
-        all_edges.extend(these_edges)
+        if r[2] not in ["+", "*"]:
+            all_expression_nodes.extend(r)
+            all_rxn_nodes.append(f"rxn_{rxn_num}")
+            these_edges = [(r[0],f"rxn_{rxn_num}" ), 
+                        (r[1],f"rxn_{rxn_num}" ),
+                        (f"rxn_{rxn_num}",r[2])]
+            all_edges.extend(these_edges)
         rxn_num += 1
 
-
     all_expression_nodes = list(set(all_expression_nodes))
-    #all_expression_nodes = [int(i) for i in all_expression_nodes]
-
+    
     rxn_graph = nx.DiGraph()
     rxn_graph.add_nodes_from(all_expression_nodes, bipartite=0)
     rxn_graph.add_nodes_from(all_rxn_nodes, bipartite=1)
@@ -447,59 +449,20 @@ def generate_reaction_graph(rxns):
 
     return rxn_graph
 
-# def reduce_expression(expr):
-
-def interact_with_tool(command, commands_to_send):
-    # Start the command line tool and open pipes to stdin, stdout, and stderr
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    stdout_data = ""
-    try:
-        # Send commands to the command line tool
-        for cmd in commands_to_send:
-            process.stdin.write(cmd + "\n")
-            process.stdin.flush()
-            # Wait a bit for the command to be processed
-            time.sleep(1)
-
-        # Terminate the process
-        process.terminate()
-        # Wait for the process to terminate and get the output
-        stdout_data, stderr_data = process.communicate()
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        process.terminate()
-        process.wait()
-
-    return stdout_data
-
-    
 
 if __name__ == "__main__":
-    # print("Ran from main")
-    # randomizer = LambdaRandomizer()
-    # reducer = LambdaReducer()
+    print("Ran from main")
+    randomizer = LambdaRandomizer()
+    reducer = LambdaReducer()
 
-    # name = "test_py"
-    # directory = "test"
-    # max_obs = 1000
-    # n_collisions = 100000
-    # output_freq = int(n_collisions/100.0)
+    name = "test_py"
+    directory = "test"
+    max_obs = 1000
+    n_collisions = 100000
+    output_freq = int(n_collisions/100.0)
 
-    # this_sim = Simulation(name, directory, reducer, randomizer,
-    #            1001011337, max_obs, n_collisions, output_freq)
-    # run_data = run_sim(this_sim)
-    # last_file_input_file = f"{run_data['directory']}/{run_data['name']}100"
-    # check_sim = Simulation(name, directory, reducer, randomizer,
-    #            1001011337, max_obs, n_collisions, output_freq, input_file= last_file_input_file)
-    # save_data, rxn_graph = check_reaction_graph(check_sim)
-    # out = reduce_expression("\\x1.x1")
-    # print(out)
-
-    # Example usage
-    command = ["../LambdaReactor/lambda"]
-    commands_to_send = ["1", "eval \\x1.x1;"]
-    output = interact_with_tool(command, commands_to_send)
-    print("Output:")
-    print(output)
+    this_sim = Simulation(name, directory, reducer, randomizer,
+                            1001011337, max_obs, n_collisions, output_freq)
+    run_data = run_sim(this_sim)
+    
+    print(run_data)
