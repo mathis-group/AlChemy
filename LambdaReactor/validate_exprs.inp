@@ -13,7 +13,7 @@
 >>>>>>>>>>>>>>>>>>>>> simulation parameters
   
 
-		     name of simulation =  0Debug
+		     name of simulation =  validate_exprs
      
 		     +- reaction scheme ------------------------+
 		     |						|
@@ -26,9 +26,9 @@
 	      inactivated: typing basis    basis.inp
 			    store types =  1
 		      number of systems =  1
-      maximum overall number of objects =  1000
-	number of collisions to perform =  100000
-		      snapshot interval =  5000
+      maximum overall number of objects =  100
+	number of collisions to perform =  0
+		      snapshot interval =  1
 		            random seed =  714321
 
 
@@ -42,7 +42,7 @@
 	      max length of identifiers =  10
 	      max length of basis types =  100
 	       standard variable prefix =  x
-			     error file =  NULL
+			     error file =  validate_exprs.error
 
 
 >>>>>>>>>>>>>>>>>>>>> random expression generator parameters
@@ -68,7 +68,7 @@ NOTE: repeat the next input block for as many times as there are systems
 		     |	  if random generation of x strings	|
 		     +------------------------------------------+
 		     
-	      file with initial objects = NULL-1000
+	      file with initial objects = test_exprs.txt
 
 		     +- regular expression filters -------------+
 		     |						|
